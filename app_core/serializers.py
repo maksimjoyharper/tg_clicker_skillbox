@@ -1,25 +1,26 @@
-from rest_framework import serializers
 from app_core.models import Player, Task, PlayerTask
+from adrf.serializers import ModelSerializer
 
 
-class PlayerSerializer(serializers.ModelSerializer):
+class PlayerSerializer(ModelSerializer):
     """Сериализатор для модели Player"""
     class Meta:
         model = Player
-        fields = ['id', 'tg_id', 'registration_date', 'points', 'points_all', 'tap_points', 'tickets', 'tickets_all',
-                  'consecutive_days', 'last_login_date', 'login_today', 'daily_points', 'daily_bonus_friends']
+        fields = ['id', 'tg_id', 'name', 'registration_date', 'points', 'points_all', 'tap_points', 'tickets',
+                  'tickets_all', 'consecutive_days', 'last_login_date', 'login_today', 'daily_points',
+                  'daily_bonus_friends', 'rank', 'league']
 
 
-class TaskSerializer(serializers.ModelSerializer):
+class TaskSerializer(ModelSerializer):
     """Сериализатор для модели Task"""
 
     class Meta:
         model = Task
-        fields = ['id', 'name', 'picture', 'dop_name', 'description', 'reward_currency', 'chest',
+        fields = ['id', 'name', 'picture', 'dop_name', 'description', 'reward_currency', 'reward_tickets',
                   'is_active']
 
 
-class PlayerTaskSerializer(serializers.ModelSerializer):
+class PlayerTaskSerializer(ModelSerializer):
     """Сериализатор для модели PlayerTask"""
     task = TaskSerializer(read_only=True)
 

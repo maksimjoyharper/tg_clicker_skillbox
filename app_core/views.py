@@ -1,14 +1,15 @@
 import logging
-from asgiref.sync import sync_to_async
+from asgiref.sync import sync_to_async, async_to_sync
 from django.core.cache import cache
+from django.db.models import Prefetch
 from drf_spectacular.types import OpenApiTypes
 from drf_spectacular.utils import OpenApiParameter, extend_schema_view, extend_schema
 from rest_framework import status
-from rest_framework.generics import GenericAPIView
 from rest_framework.response import Response
-from app_core.models import Player, ReferralSystem
+from app_core.models import Player, ReferralSystem, League, PlayerTask
 from app_core.serializers import PlayerSerializer, PlayerTaskSerializer
 from django.shortcuts import get_object_or_404
+from adrf.viewsets import GenericAPIView
 
 
 @extend_schema_view(
@@ -35,18 +36,37 @@ class PlayerInfo(GenericAPIView):
     Необходимые переменные для корректной работы:
     - `tg_id`: Уникальный идентификатор пользователя в Telegram.
     - `name`: Имя пользователя.
+    - `referral_id`: Id-друга который пригласил. (Не обязательный аргумент)
     Возвращает:
     - Информацию о пользователе.
     """
     serializer_class = PlayerSerializer
 
+    async def update_player_status(self, player):
+        """Функция для обновления ежедневного бонуса и получение бонусов от друзей 10%"""
+        if player.daily_bonus_friends != 0:
+            player.points += player.daily_bonus_friends
+            player.daily_bonus_friends = 0
+        elif player.is_new:
+            player.is_new = False
+        # Обновляем ежедневный статус
+        await player.update_daily_status()
+        await player.asave()
+        serializer = self.get_serializer(player)
+        return await serializer.adata
+
     async def get(self, request, tg_id: int, name: str, referral_id: int = None):
         # Пытаемся получить игрока или создаем нового
-        player, created = await Player.objects.aget_or_create(tg_id=tg_id, defaults={"name": name, "is_new": True})
+        defaults = {"name": name, "is_new": True}
+        # Устанавливаем дефолтную лигу
+        default_league = await League.objects.afirst()
+        if default_league:
+            defaults["league"] = default_league
+        player, created = await Player.objects.aget_or_create(tg_id=tg_id, defaults=defaults)
         # Если игрок только что создан, проверяем реферальную систему
         if created:
-            players_count = await Player.objects.аcount()  # Получаем общее количество игроков
-            player.rank = players_count + 1  # Новый игрок всегда в конце списка
+            players_count = await Player.objects.acount()  # Получаем общее количество игроков
+            player.rank = players_count  # Новый игрок всегда в конце списка
             if referral_id and referral_id != tg_id:
                 referral = await sync_to_async(get_object_or_404)(Player, tg_id=referral_id)
                 # Проверяем, что реферальная связь ещё не существует
@@ -54,19 +74,16 @@ class PlayerInfo(GenericAPIView):
                 if not exists:
                     await ReferralSystem.objects.acreate(referral=referral, new_player=player)
                 else:
-                    return Response({"Error": "Игрок уже в друзьях у реферала."}, status=status.HTTP_400_BAD_REQUEST)
+                    response_data = await self.update_player_status(player)
+                    response_data["Error"] = "Игрок уже в друзьях у реферала."
+                    return Response(response_data, status=status.HTTP_400_BAD_REQUEST)
             elif referral_id == tg_id:
-                return Response({"Error": "Нельзя добавить самого себя в друзья!"}, status=status.HTTP_400_BAD_REQUEST)
-            # Помечаем игрока как не нового
-            player.is_new = False
-        if player.daily_bonus_friends != 0:
-            player.points += player.daily_bonus_friends
-            player.daily_bonus_friends = 0
+                response_data = await self.update_player_status(player)
+                response_data["Error"] = "Нельзя добавить самого себя в друзья!."
+                return Response(response_data, status=status.HTTP_400_BAD_REQUEST)
         # Обновляем ежедневный статус и возвращаем данные игрока
-        await player.update_daily_status()
-        await player.asave()
-        serializer = self.get_serializer(player)
-        return Response(serializer.data, status=status.HTTP_200_OK)
+        response_data = await self.update_player_status(player)
+        return Response(response_data, status=status.HTTP_200_OK)
 
 
 @extend_schema_view(
@@ -99,38 +116,68 @@ class PlayerFriendsView(GenericAPIView):
             # Получаем список друзей
             friends = player.referral.all()  # Получаем все объекты ReferralSystem, связанные с игроком
             # Сериализуем друзей
-            friends_data = [{'tg_id': friend.new_player.tg_id, 'name': friend.new_player.name} for friend in friends]
+            friends_data = [{'tg_id': friend.new_player.tg_id, 'name': friend.new_player.name,
+                            'referral_bonus': friend.referral_bonus, 'points': friend.new_player.points}
+                            for friend in friends]
             return Response(friends_data, status=status.HTTP_200_OK)
         except Player.DoesNotExist:
             return Response({"error": "Игрок не найден."}, status=status.HTTP_404_NOT_FOUND)
 
 
-# class TakinReferralBonus(GenericAPIView):
-#     def post(self, request):
-#         person = get_object_or_404(Player, tg_id=request.data['tg_id'])
-#         system = get_object_or_404(ReferralSystem, id=request.data['referral_system_id'])
-#         if system.referral.lvl < 2 and system.new_player.lvl < 2:
-#             return Response({
-#                 'Error': 'Оба игрока должны достичь уровня выше 2 для получения бонуса.',
-#                 'referral_lvl': system.referral.lvl,
-#                 'new_player_lvl': system.new_player.lvl
-#             }, status=status.HTTP_400_BAD_REQUEST)
-#         if system.referral == person and system.referral_bonus == True:
-#             system.referral_bonus = False
-#             system.save()
-#             person.crystal += 50
-#             person.save()
-#             return Response({
-#                 'referral': 'Получил 50 кристаллов'})
-#         if system.new_player == person and system.new_player_bonus == True:
-#             system.new_player_bonus = False
-#             system.save()
-#             system.new_player.crystal += 10
-#             system.new_player.save()
-#             return Response({
-#                 'new_player': 'Получил 10 кристаллов'})
-#         else:
-#             return Response({'Error': "Вы уже получали бонус"}, status=status.HTTP_400_BAD_REQUEST)
+@extend_schema_view(
+    post=extend_schema(
+        tags=["Игрок: бонусы"],
+        summary="Получить бонус за друга",
+        description=(
+            "Позволяет игроку получить бонус за привлечение нового игрока. "
+            "Если реферальная связь существует и бонус не был получен ранее, "
+            "игрок получает бонус и обновляется количество его билетов."
+        ),
+        parameters=[
+            OpenApiParameter(name="tg_id", type=int, description="ID игрока, который привлекает друга (Telegram)."),
+            OpenApiParameter(name="new_player_id", type=int, description="ID нового игрока, которого пригласил реферал.")
+        ],
+        responses={
+            200: OpenApiTypes.OBJECT,
+            400: {"description": "Реферальная связь не найдена или бонус уже получен."},
+            404: {"description": "Игрок не найден."}
+        }
+    )
+)
+class FriendBonusView(GenericAPIView):
+    """
+    Эндпоинт для получения бонуса за друга.
+    Принимает POST-запрос с идентификатором пользователя (tg_id) и идентификатором нового игрока (new_player_id).
+    Параметры:
+    - `tg_id`: Уникальный идентификатор пользователя в Telegram.
+    - `new_player_id`: Уникальный идентификатор нового игрока, за которого начисляется бонус.
+    Возвращает:
+    - Сообщение о получении бонуса и общее количество билетов.
+    - Статус 400, если реферальная связь не найдена или бонус уже получен.
+    - Статус 404, если игрок не найден.
+    """
+
+    async def post(self, request, tg_id: int, new_player_id: int):
+        try:
+            # Ищем игрока и его реферальную связь
+            referral_relation = await ReferralSystem.objects.select_related('referral', 'new_player').filter(
+                referral__tg_id=tg_id, new_player__tg_id=new_player_id).afirst()
+            if not referral_relation:
+                return Response({"message": "Реферальная связь не найдена."}, status=status.HTTP_400_BAD_REQUEST)
+            # Проверка бонуса
+            elif not referral_relation.referral_bonus:
+                return Response({"message": "Бонус за этого друга уже получен."},
+                                status=status.HTTP_400_BAD_REQUEST)
+            # Обновляем данные
+            referral_relation.referral.tickets += 1
+            referral_relation.referral.tickets_all += 1
+            await referral_relation.referral.asave(update_fields=["tickets", "tickets_all"])
+            referral_relation.referral_bonus = False
+            await referral_relation.asave(update_fields=["referral_bonus"])
+            return Response({"message": f"Вы получили 1 бонусный билет за друга {referral_relation.new_player.name}!",
+                            "total_tickets": referral_relation.referral.tickets}, status=status.HTTP_200_OK)
+        except Player.DoesNotExist:
+            return Response({"error": "Игрок не найден."}, status=status.HTTP_404_NOT_FOUND)
 
 
 @extend_schema_view(
@@ -162,7 +209,6 @@ class GenerateRefLinkView(GenericAPIView):
         except Exception as e:
             logging.error(f"Error generating referral link: {e}")
             return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-
         return Response({'ref_link': create_link}, status=status.HTTP_200_OK)
 
 
@@ -197,38 +243,56 @@ class GenerateRefLinkView(GenericAPIView):
     )
 )
 class TaskPlayerDetailView(GenericAPIView):
-    """Информация о задачах и их статусе у игрока."""
+    """
+    Эндпоинт для информации о задачах игрока.
+    Принимает GET-запрос с идентификатором пользователя (tg_id) и необязательным параметром dop_name.
+    Принимает POST-запрос с идентификатором пользователя (tg_id) и dop_name.
+    Параметры:
+    - `tg_id`: Уникальный идентификатор пользователя в Telegram.
+    - `dop_name`: Дополнительное имя задачи (необязательный параметр).
+    Возвращает:
+    - Информацию о задачах игрока.
+    - Статус 404, если игрок или задачи не найдены.
+    - Статус 400, если данные невалидны.
+    """
     serializer_class = PlayerTaskSerializer
 
     async def get(self, request, tg_id, dop_name=None):
-        # Ищем игрока асинхронно и подгружаем связанные задачи
-        person = await Player.objects.prefetch_related('task_player__task').aget(tg_id=tg_id)
-        # Фильтруем задачи для игрока, при необходимости применяя доп. фильтр
+        try:
+            # Используем prefetch_related для загрузки задач игрока и связанных Task
+            player = await (Player.objects.prefetch_related
+                            (Prefetch('task_player', queryset=PlayerTask.objects.select_related('task')
+                                      .order_by('completed', 'id'))).aget(tg_id=tg_id))
+        except Player.DoesNotExist:
+            return Response({"detail": "Игрок не найден"}, status=status.HTTP_404_NOT_FOUND)
+        # Фильтруем задачи, если передан dop_name
+        task_players = player.task_player.all()  # Получаем связанные PlayerTask
         if dop_name:
-            tasks = person.task_player.filter(task__dop_name=dop_name)
-        else:
-            tasks = person.task_player.all().order_by('completed', 'id')
-        # Если задач нет, возвращаем ошибку
-        if not tasks:
+            task_players = [tp for tp in task_players if tp.task.dop_name == dop_name]
+        if not task_players:
             return Response({"detail": "Задачи не найдены"}, status=status.HTTP_404_NOT_FOUND)
         # Сериализуем данные
-        serializer = self.get_serializer(tasks, many=True)
+        serializer = self.get_serializer(task_players, many=True)
         return Response(serializer.data, status=status.HTTP_200_OK)
 
     async def post(self, request, tg_id, dop_name):
         if tg_id and dop_name:
-            person = await Player.objects.prefetch_related('task_player__task').aget(tg_id=tg_id)
-            tasks = person.task_player.filter(task__dop_name=dop_name)
+            player = await (Player.objects.prefetch_related
+                            (Prefetch('task_player', queryset=PlayerTask.objects.select_related('task')))
+                            .aget(tg_id=tg_id))
+            tasks = player.task_player.filter(task__dop_name=dop_name)
+            # Преобразуем QuerySet в список перед проверкой
+            tasks_list = await sync_to_async(list)(tasks)
             # Проверяем, что задача существует
-            if not tasks:
+            if not tasks_list:
                 return Response({"error": "Задача не найдена"}, status=status.HTTP_404_NOT_FOUND)
-            task = tasks.afirst()
+            task = tasks_list[0]
             serializer = self.get_serializer(task, data=request.data, partial=True)
             if serializer.is_valid():
                 await serializer.asave()
                 await task.check_completion()
-                return Response(serializer.data, status=status.HTTP_200_OK)
-            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+                return Response(await serializer.adata, status=status.HTTP_200_OK)
+            return Response(await serializer.aerrors, status=status.HTTP_400_BAD_REQUEST)
         return Response({'error': 'tg_id и dop_name обязательные поля'}, status=status.HTTP_400_BAD_REQUEST)
 
 
@@ -251,24 +315,38 @@ class TaskPlayerDetailView(GenericAPIView):
     )
 )
 class StartTaskView(GenericAPIView):
-    """Запуск таймера задачи после перехода на ссылку."""
+    """
+    Эндпоинт для запуска таймера задачи после перехода на ссылку.
+    Принимает POST-запрос с идентификатором пользователя (tg_id) и dop_name.
+    Параметры:
+    - `tg_id`: Уникальный идентификатор пользователя в Telegram.
+    - `dop_name`: Дополнительное имя задачи.
+    Возвращает:
+    - Информацию о задаче.
+    - Статус 404, если задача не найдена.
+    - Статус 400, если задача уже завершена или данные невалидны.
+    """
     serializer_class = PlayerTaskSerializer
 
     async def post(self, request, tg_id, dop_name):
-        person = await Player.objects.prefetch_related('task_player__task').aget(tg_id=tg_id)
-        tasks = person.task_player.filter(task__dop_name=dop_name)
-        # Проверка, если задача уже завершена
-        if not tasks:
+        player = await (Player.objects.prefetch_related
+                        (Prefetch('task_player', queryset=PlayerTask.objects.select_related('task')))
+                        .aget(tg_id=tg_id))
+        tasks = player.task_player.filter(task__dop_name=dop_name)
+        # Преобразуем QuerySet в список перед проверкой
+        tasks_list = await sync_to_async(list)(tasks)
+        # Проверяем, что задача существует
+        if not tasks_list:
             return Response({"error": "Задача не найдена"}, status=status.HTTP_404_NOT_FOUND)
-        task = tasks.afirst()
+        task = tasks_list[0]
         if task.completed:
             return Response({"error": "Задача уже завершена."}, status=status.HTTP_400_BAD_REQUEST)
         serializer = self.get_serializer(task, data=request.data, partial=True)
         if serializer.is_valid():
             await serializer.asave()
             await task.start_task_player()
-            return Response(serializer.data, status=status.HTTP_200_OK)
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+            return Response(await serializer.adata, status=status.HTTP_200_OK)
+        return Response(await serializer.aerrors, status=status.HTTP_400_BAD_REQUEST)
 
 
 @extend_schema_view(
@@ -286,13 +364,22 @@ class StartTaskView(GenericAPIView):
     )
 )
 class MonthlyTopPlayersView(GenericAPIView):
-    """Топ 100 игроков + ранг текущего игрока"""
+    """
+    Эндпоинт для получения топ-100 игроков и ранга текущего игрока.
+    Принимает GET-запрос с идентификатором пользователя (tg_id).
+    Параметры:
+    - `tg_id`: Уникальный идентификатор пользователя в Telegram.
+    Возвращает:
+    - Топ-100 игроков и ранг текущего игрока.
+    - Статус 500, если возникла ошибка при работе с Redis или базой данных.
+    """
     async def get(self, request, tg_id):
         person = await Player.objects.aget(tg_id=tg_id)
         top_players = cache.get("monthly_top_100")
         if not top_players:
             # Если кэша нет, загружаем топ-100 из базы и кэшируем
-            top_players_queryset = await Player.objects.order_by('-points').values("tg_id", "name", "points", "rank")[:100]
+            top_players_queryset = await sync_to_async(
+                lambda: Player.objects.order_by('-points').values("tg_id", "name", "points", "rank")[:100])()
             top_players = list(top_players_queryset)
             await sync_to_async(cache.set)("monthly_top_100", top_players)
         return Response({'top_players': top_players, 'player_rank': person.rank})

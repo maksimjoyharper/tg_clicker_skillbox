@@ -10,6 +10,10 @@ class League(models.Model):
     picture = models.ImageField(null=True, blank=True, verbose_name='Картинка')
     description = models.CharField(max_length=255, verbose_name='Описание задачи', default='')
 
+    class Meta:
+        verbose_name = "Лига"
+        verbose_name_plural = "Лиги"
+
 
 class Player(models.Model):
     """Модель игрока"""
@@ -17,10 +21,10 @@ class Player(models.Model):
     name = models.CharField(max_length=50, verbose_name="Имя игрока")
     registration_date = models.DateTimeField(auto_now_add=True, verbose_name="Дата регистрации игрока")
     points = models.IntegerField(default=1000, verbose_name="Текущие баллы игрока")
-    points_all = models.IntegerField(default=0, verbose_name="Количество баллов игрока за всё время")
+    points_all = models.IntegerField(default=1000, verbose_name="Количество баллов игрока за месяц")
     tap_points = models.IntegerField(default=1, verbose_name="Баллы за 1 тап в игре")
-    tickets = models.IntegerField(default=3, verbose_name="Текущее количество билетов игрока")
-    tickets_all = models.IntegerField(default=3, verbose_name="Количество билетов игрока за всё время")
+    tickets = models.IntegerField(default=2, verbose_name="Текущее количество билетов игрока")
+    tickets_all = models.IntegerField(default=2, verbose_name="Количество билетов игрока за месяц")
     consecutive_days = models.IntegerField(default=0, verbose_name="Количество дней подряд")
     last_login_date = models.DateField(null=True, blank=True, verbose_name="Последний вход для расчёта дней подряд")
     login_today = models.BooleanField(default=False, verbose_name="Входил ли пользователь сегодня")
@@ -80,6 +84,10 @@ class ReferralSystem(models.Model):
     referral_bonus = models.BooleanField(default=True, verbose_name="Бонус реферала")
     new_player_bonus = models.BooleanField(default=True, verbose_name="Бонус нового игрока")
 
+    class Meta:
+        verbose_name = "Реферальная система"
+        verbose_name_plural = "Реферальная системы"
+
     def __str__(self):
         return f"me:{self.referral.name}___new_player:{self.new_player.name}"
 
@@ -91,7 +99,12 @@ class Task(models.Model):
     dop_name = models.CharField(max_length=50, blank=True, null=True, verbose_name='Доп. название задачи')
     description = models.CharField(max_length=255, verbose_name='Описание задачи', default='')
     reward_currency = models.IntegerField(default=0, verbose_name='Награда (баллы)')
+    reward_tickets = models.IntegerField(default=0, verbose_name='Награда (билеты)')
     is_active = models.BooleanField(default=True, verbose_name="Активность задачи")
+
+    class Meta:
+        verbose_name = "Задания"
+        verbose_name_plural = "Задания"
 
     def __str__(self):
         return self.name
@@ -117,6 +130,10 @@ class PlayerTask(models.Model):
 
     async def start_task_player(self):
         """При вызове представления, задаём полю значение начало выполнение задачи"""
-        self.start_time = timezone.now()
-        await self.asave(update_fields=['start_time'])
+        if self.start_time is None:
+            self.start_time = timezone.now()
+            await self.asave(update_fields=['start_time'])
 
+    class Meta:
+        verbose_name = "Задание игрока"
+        verbose_name_plural = "Задания игроков"
