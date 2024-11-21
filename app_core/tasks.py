@@ -38,3 +38,9 @@ async def update_monthly_ranking():
         "monthly_top_100",
         [{"tg_id": player.tg_id, "name": player.name, "points": player.points, "rank": player.rank} for player in top_100_players],
     )
+
+
+@shared_task(acks_late=True, reject_on_worker_lost=True)
+async def reset_login_today():
+    """Сбрасывает поле login_today у всех игроков."""
+    await Player.objects.aupdate(login_today=False)

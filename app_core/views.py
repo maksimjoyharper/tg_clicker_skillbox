@@ -6,7 +6,7 @@ from drf_spectacular.types import OpenApiTypes
 from drf_spectacular.utils import OpenApiParameter, extend_schema_view, extend_schema
 from rest_framework import status
 from rest_framework.response import Response
-from app_core.models import Player, ReferralSystem, League, PlayerTask
+from app_core.models import Player, ReferralSystem, League, PlayerTask, DAILY_BONUSES
 from app_core.serializers import PlayerSerializer, PlayerTaskSerializer
 from django.shortcuts import get_object_or_404
 from adrf.viewsets import GenericAPIView
@@ -83,6 +83,7 @@ class PlayerInfo(GenericAPIView):
                 return Response(response_data, status=status.HTTP_400_BAD_REQUEST)
         # Обновляем ежедневный статус и возвращаем данные игрока
         response_data = await self.update_player_status(player)
+        response_data['bonus_info'] = DAILY_BONUSES
         return Response(response_data, status=status.HTTP_200_OK)
 
 

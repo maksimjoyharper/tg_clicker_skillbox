@@ -1,7 +1,19 @@
+import json
 from datetime import timedelta
-
+from pathlib import Path
 from django.db import models
 from django.utils import timezone
+
+
+def load_daily_bonuses():
+    """Загружает ежедневные бонусы из JSON-файла."""
+    bonuses_file_path = Path(__file__).resolve().parent / 'daily_bonuses.json'
+    with open(bonuses_file_path, 'r') as file:
+        bonuses_data = json.load(file)
+    return bonuses_data['bonuses']
+
+
+DAILY_BONUSES = load_daily_bonuses()
 
 
 class League(models.Model):
@@ -50,20 +62,13 @@ class Player(models.Model):
         else:
             self.consecutive_days = 1
 
-        day_in_cycle = self.consecutive_days % 10
-        if day_in_cycle == 0:
-            day_in_cycle = 10  # Если остаток 0, это 10-й день в цикле
+        # Получаем бонус для текущего дня
+        daily_bonuses = DAILY_BONUSES
+        bonus = next((b for b in daily_bonuses if b["day"] == self.consecutive_days), {"tickets": 1, "tap_points": 1})
 
-        self.tickets += day_in_cycle
-        self.tickets_all += day_in_cycle  # Увеличиваем общий счетчик билетов
-        if 10 < self.consecutive_days < 21:
-            self.tap_points = 2
-        elif self.consecutive_days > 20:
-            self.tap_points = 3
-        else:
-            self.tap_points = 1
-
-        # Обновляем последний вход
+        self.tickets += bonus["tickets"]
+        self.tickets_all += bonus["tickets"]  # Увеличиваем общий счетчик билетов
+        self.tap_points = bonus["tap_points"]
         self.last_login_date = today
         self.login_today = True  # Обновляем флаг, что пользователь зашел сегодня
         await self.asave()

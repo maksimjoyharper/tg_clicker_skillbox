@@ -52,6 +52,7 @@ INSTALLED_APPS = [
     'django_celery_results',
     'django_celery_beat',
     'adrf',
+    'shop.apps.ShopConfig',
 
 
 ]
@@ -164,11 +165,15 @@ CELERY_TIMEZONE = "Europe/Moscow"
 CELERY_BEAT_SCHEDULE = {
     'calculate_daily_referral_bonus': {
         'task': 'app_core.tasks.calculate_daily_referral_bonus',
-        'schedule': crontab(0, 0),
+        'schedule': crontab(0, 0),  # Каждый день в 00:00 вычисляем суточный бонус за рефералов
     },
     "update_monthly_ranking": {
         "task": "app_core.tasks.update_monthly_ranking",
-        "schedule": crontab(0, 0, day_of_month="1"),  # Запуск в 00:00 первого числа каждого месяца
+        "schedule": crontab(0, 0, day_of_month="1"),  # В 00:00 1 числа месяца обновляем топ 100 игроков
+    },
+    "reset_login_today": {
+        "task": "app_core.tasks.reset_login_today",
+        "schedule": crontab(0, 0),  # Каждый день в 00:00 сбрасываем поле login_today у всех игроков
     },
 }
 
