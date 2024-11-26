@@ -1,5 +1,5 @@
 # Используем базовый образ Python 3.12
-FROM python:3.12-alpine
+FROM python:3.12
 
 # Команда для вывода логов в консоле
 ENV PYTHONUNBUFFERED=1

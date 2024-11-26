@@ -29,13 +29,12 @@ SECRET_KEY = 'django-insecure-0dl6e_^=cbk_7m3nfmvwif67p1_jpiw03^8$%w#s#0e4xesonv
 DEBUG = True
 
 # IP адреса или доменные имена, которые имеют доступ к приложению
-ALLOWED_HOSTS = ['localhost', '127.0.0.1', '0.0.0.0',]
-
+ALLOWED_HOSTS = ['45.131.41.148', 'localhost', '127.0.0.1', '0.0.0.0',]
+ROOT_URLCONF = 'skill_tap.urls'
 # Переменная для управления CORS, содержит список доменов с которых разрешены запросы
-CORS_ALLOWED_ORIGINS = []
-
+CORS_ALLOWED_ORIGINS = ['http://45.131.41.148', 'https://45.131.41.148']
 # Переменная определяет список доменов, которым Django доверяет при обработке CSRF-токенов.
-CSRF_TRUSTED_ORIGINS = []
+CSRF_TRUSTED_ORIGINS = ['http://45.131.41.148', 'https://45.131.41.148']
 
 
 # Application definition
