@@ -13,6 +13,7 @@ import os
 from pathlib import Path
 from celery.schedules import crontab
 from dotenv import load_dotenv
+import redis
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -148,11 +149,17 @@ MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
 
 
 CACHES = {
-    'default': {
-        'BACKEND': 'django.core.cache.backends.redis.RedisCache',
-        'LOCATION': 'redis://127.0.0.1:6379/1', # База данных Redis для кэша ОТДЕЛЬНАЯ
+    "default": {
+        "BACKEND": "django_redis.cache.RedisCache",
+        "LOCATION": "redis://127.0.0.1:6379/1",  # База данных Redis для кэша ОТДЕЛЬНАЯ
+        "OPTIONS": {
+            "CLIENT_CLASS": "django_redis.client.DefaultClient",
+        }
     }
 }
+# Создаем асинхронный экземпляр Redis
+redis_instance = redis.StrictRedis(host='localhost', port=6379, db=0)
+
 CELERY_BROKER_URL = os.getenv("CELERY_BROKER_URL", "redis://localhost:6379/0")
 CELERY_RESULT_BACKEND = os.getenv("CELERY_RESULT_BACKEND", "redis://localhost:6379/0")
 CELERY_BROKER_TRANSPORT_OPTIONS = {'visibility_timeout': 3600}

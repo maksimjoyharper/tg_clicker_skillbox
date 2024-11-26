@@ -1,6 +1,4 @@
 import logging
-from asgiref.sync import sync_to_async, async_to_sync
-from django.core.cache import cache
 from django.db.models import Prefetch
 from drf_spectacular.types import OpenApiTypes
 from drf_spectacular.utils import OpenApiParameter, extend_schema_view, extend_schema
@@ -8,8 +6,8 @@ from rest_framework import status
 from rest_framework.response import Response
 from app_core.models import Player, ReferralSystem, League, PlayerTask, DAILY_BONUSES
 from app_core.serializers import PlayerSerializer, PlayerTaskSerializer
-from django.shortcuts import get_object_or_404
 from adrf.viewsets import GenericAPIView
+from async_cache import async_cache
 
 
 @extend_schema_view(
@@ -68,7 +66,7 @@ class PlayerInfo(GenericAPIView):
             players_count = await Player.objects.acount()  # Получаем общее количество игроков
             player.rank = players_count  # Новый игрок всегда в конце списка
             if referral_id and referral_id != tg_id:
-                referral = await sync_to_async(get_object_or_404)(Player, tg_id=referral_id)
+                referral = await Player.objects.aget(tg_id=referral_id)
                 # Проверяем, что реферальная связь ещё не существует
                 exists = await ReferralSystem.objects.filter(referral=referral, new_player=player).aexists()
                 if not exists:
@@ -282,8 +280,8 @@ class TaskPlayerDetailView(GenericAPIView):
                             (Prefetch('task_player', queryset=PlayerTask.objects.select_related('task')))
                             .aget(tg_id=tg_id))
             tasks = player.task_player.filter(task__dop_name=dop_name)
-            # Преобразуем QuerySet в список перед проверкой
-            tasks_list = await sync_to_async(list)(tasks)
+            # Преобразуем QuerySet в список асинхронно
+            tasks_list = [task async for task in tasks.aiterator()]
             # Проверяем, что задача существует
             if not tasks_list:
                 return Response({"error": "Задача не найдена"}, status=status.HTTP_404_NOT_FOUND)
@@ -334,8 +332,8 @@ class StartTaskView(GenericAPIView):
                         (Prefetch('task_player', queryset=PlayerTask.objects.select_related('task')))
                         .aget(tg_id=tg_id))
         tasks = player.task_player.filter(task__dop_name=dop_name)
-        # Преобразуем QuerySet в список перед проверкой
-        tasks_list = await sync_to_async(list)(tasks)
+        # Преобразуем QuerySet в список асинхронно
+        tasks_list = [task async for task in tasks.aiterator()]
         # Проверяем, что задача существует
         if not tasks_list:
             return Response({"error": "Задача не найдена"}, status=status.HTTP_404_NOT_FOUND)
@@ -375,13 +373,12 @@ class MonthlyTopPlayersView(GenericAPIView):
     - Статус 500, если возникла ошибка при работе с Redis или базой данных.
     """
     async def get(self, request, tg_id):
-        person = await Player.objects.aget(tg_id=tg_id)
-        top_players = cache.get("monthly_top_100")
+        player = await Player.objects.aget(tg_id=tg_id)
+        top_players = await async_cache.aget("monthly_top_100")
         if not top_players:
             # Если кэша нет, загружаем топ-100 из базы и кэшируем
-            top_players_queryset = await sync_to_async(
-                lambda: Player.objects.order_by('-points').values("tg_id", "name", "points", "rank")[:100])()
-            top_players = list(top_players_queryset)
-            await sync_to_async(cache.set)("monthly_top_100", top_players)
-        return Response({'top_players': top_players, 'player_rank': person.rank})
+            top_players_queryset = Player.objects.order_by('-points').values("tg_id", "name", "points", "rank").aiterator()
+            top_players = [task async for task in top_players_queryset][:100]
+            await async_cache.aset("monthly_top_100", top_players)
+        return Response({'top_players': top_players, 'player_rank': player.rank})
 

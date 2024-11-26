@@ -1,4 +1,3 @@
-from asgiref.sync import sync_to_async
 from django.db.models import Prefetch
 from adrf.viewsets import GenericAPIView
 from django.utils import timezone
@@ -114,8 +113,8 @@ class ProductListView(GenericAPIView):
             return Response({"error": "Игрок не найден"}, status=status.HTTP_404_NOT_FOUND)
 
         # Получаем все активные продукты
-        products = await sync_to_async(Product.objects.filter)(is_active=True)
-        products = await sync_to_async(list)(products.order_by('id').select_related('shop'))
+        products = Product.objects.filter(is_active=True).order_by('id').select_related('shop').aiterator()
+        products = [product async for product in products]
         # Собираем список продуктов игрока
         player_products = {pp.product.id: pp for pp in player.purchases.all()}
 
