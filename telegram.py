@@ -7,8 +7,10 @@ from aiogram.enums import ParseMode
 from aiogram.filters import CommandStart
 from aiogram.types import InlineKeyboardButton, WebAppInfo, InlineKeyboardMarkup
 from aiogram.client.default import DefaultBotProperties
+from dotenv import load_dotenv
 
 # Bot token can be obtained via https://t.me/BotFather
+load_dotenv()
 TOKEN = os.getenv("TOKEN")
 
 # Initialize Bot instance with default bot properties which will be passed to all API calls
