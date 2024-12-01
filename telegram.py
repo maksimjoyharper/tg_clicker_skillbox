@@ -23,17 +23,45 @@ async def handle_start(message: types.Message):
     command_parts = message.text.split()
     if len(command_parts) > 1:
         referrer_id = command_parts[1].replace('id_', '')  # Удаляем префикс 'id_'
-        web_app_url = f'https://меняем_на_наш_домен/?id={referrer_id}'
+        web_app_url = f'https://boxy.skillbox.by?id={referrer_id}'
         keyboard = InlineKeyboardMarkup(inline_keyboard=[
             [InlineKeyboardButton(text="Запуск", web_app=WebAppInfo(url=web_app_url))]
         ])
         await message.answer("Начни сейчас и догони своего друга", reply_markup=keyboard)
     else:
-        web_app_url = 'https://меняем_на_наш_домен/'
+        web_app_url = 'https://boxy.skillbox.by/'
         keyboard = InlineKeyboardMarkup(inline_keyboard=[
             [InlineKeyboardButton(text="Запуск", web_app=WebAppInfo(url=web_app_url))]
         ])
         await message.answer("Попробуй свои силы.Удачи !", reply_markup=keyboard)
+
+
+async def main() -> None:
+    # And the run events dispatching
+    await dp.start_polling(bot)
+
+
+if __name__ == "__main__":
+    logging.basicConfig(level=logging.INFO, stream=sys.stdout)
+    asyncio.run(main())
+
+
+@dp.message(CommandStart())
+async def handle_start(message: types.Message):
+    command_parts = message.text.split()
+    if len(command_parts) > 1:
+        referrer_id = command_parts[1].replace('id_', '')  # Удаляем префикс 'id_'
+        web_app_url = f'https://eggswar.com?id={referrer_id}'
+        keyboard = InlineKeyboardMarkup(inline_keyboard=[
+            [InlineKeyboardButton(text="Запуск", web_app=WebAppInfo(url=web_app_url))]
+        ])
+        await message.answer("Начни сейчас и догони своего друга", reply_markup=keyboard)
+    else:
+        web_app_url = 'https://eggswar.com/'
+        keyboard = InlineKeyboardMarkup(inline_keyboard=[
+            [InlineKeyboardButton(text="Запуск", web_app=WebAppInfo(url=web_app_url))]
+        ])
+        await message.answer("Попробуй свои силы и одолей всех врагов у себя на пути", reply_markup=keyboard)
 
 
 async def main() -> None:
