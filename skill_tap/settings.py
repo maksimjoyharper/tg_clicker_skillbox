@@ -32,9 +32,9 @@ DEBUG = True
 ALLOWED_HOSTS = ['45.131.41.148', 'localhost', '127.0.0.1', '0.0.0.0', 'boxy.skillbox.by']
 ROOT_URLCONF = 'skill_tap.urls'
 # Переменная для управления CORS, содержит список доменов с которых разрешены запросы
-CORS_ALLOWED_ORIGINS = ['http://45.131.41.148', 'https://45.131.41.148', 'http://boxy.skillbox.by/', 'https://boxy.skillbox.by/']
+CORS_ALLOWED_ORIGINS = ['http://45.131.41.148', 'https://45.131.41.148', 'http://boxy.skillbox.by', 'https://boxy.skillbox.by']
 # Переменная определяет список доменов, которым Django доверяет при обработке CSRF-токенов.
-CSRF_TRUSTED_ORIGINS = ['http://45.131.41.148', 'https://45.131.41.148', 'http://boxy.skillbox.by/', 'https://boxy.skillbox.by/']
+CSRF_TRUSTED_ORIGINS = ['http://45.131.41.148', 'https://45.131.41.148', 'http://boxy.skillbox.by', 'https://boxy.skillbox.by']
 
 
 # Application definition
