@@ -7,7 +7,7 @@ class PlayerSerializer(ModelSerializer):
     class Meta:
         model = Player
         fields = ['id', 'tg_id', 'name', 'registration_date', 'points', 'points_all', 'tap_points', 'tickets',
-                  'tickets_all', 'consecutive_days', 'last_login_date', 'login_today', 'daily_points',
+                  'tickets_all', 'premium_tickets', 'premium_tickets_all', 'consecutive_days', 'last_login_date', 'login_today', 'daily_points',
                   'daily_bonus_friends', 'rank', 'league']
 
 

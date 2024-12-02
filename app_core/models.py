@@ -35,8 +35,10 @@ class Player(models.Model):
     points = models.IntegerField(default=1000, verbose_name="Текущие баллы игрока")
     points_all = models.IntegerField(default=1000, verbose_name="Количество баллов игрока за месяц")
     tap_points = models.IntegerField(default=1, verbose_name="Баллы за 1 тап в игре")
-    tickets = models.IntegerField(default=2, verbose_name="Текущее количество билетов игрока")
-    tickets_all = models.IntegerField(default=2, verbose_name="Количество билетов игрока за месяц")
+    tickets = models.IntegerField(default=0, verbose_name="Текущее количество билетов игрока")
+    tickets_all = models.IntegerField(default=0, verbose_name="Количество билетов игрока за месяц")
+    premium_tickets = models.IntegerField(default=0, verbose_name="Текущее количество премиум билетов игрока")
+    premium_tickets_all = models.IntegerField(default=0, verbose_name="Количество премиум билетов игрока за месяц")
     consecutive_days = models.IntegerField(default=0, verbose_name="Количество дней подряд")
     last_login_date = models.DateField(null=True, blank=True, verbose_name="Последний вход для расчёта дней подряд")
     login_today = models.BooleanField(default=False, verbose_name="Входил ли пользователь сегодня")
@@ -64,11 +66,16 @@ class Player(models.Model):
 
         # Получаем бонус для текущего дня
         daily_bonuses = DAILY_BONUSES
-        bonus = next((b for b in daily_bonuses if b["day"] == self.consecutive_days), {"tickets": 1, "tap_points": 1})
+        bonus = next((b for b in daily_bonuses if b["day"] == self.consecutive_days),
+                     {"tickets": 1, "premium_tickets": 1, "points": 1})
 
-        self.tickets += bonus["tickets"]
-        self.tickets_all += bonus["tickets"]  # Увеличиваем общий счетчик билетов
-        self.tap_points = bonus["tap_points"]
+        self.tickets += bonus.get("tickets", 0)
+        self.tickets_all += bonus.get("tickets", 0)  # Увеличиваем общий счетчик билетов
+        self.premium_tickets += bonus.get("premium_tickets", 0)
+        self.premium_tickets_all += bonus.get("premium_tickets", 0)  # Увеличиваем общий счетчик премиум билетов
+        self.points += bonus.get("points", 0)
+        self.points_all += bonus.get("points", 0)  # Увеличиваем общее количество очков
+
         self.last_login_date = today
         self.login_today = True  # Обновляем флаг, что пользователь зашел сегодня
         await self.asave()

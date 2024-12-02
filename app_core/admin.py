@@ -6,8 +6,8 @@ from app_core.models import *
 class PlayerAdmin(admin.ModelAdmin):
     """Регистрация в админ панели модели Player."""
     list_display = ['id', 'tg_id', 'name', 'registration_date', 'points', 'points_all', 'tap_points', 'tickets',
-                    'tickets_all', 'consecutive_days', 'last_login_date', 'login_today', 'is_new', 'daily_points',
-                    'daily_bonus_friends', 'rank', 'league']
+                    'tickets_all', 'premium_tickets', 'premium_tickets_all', 'consecutive_days', 'last_login_date',
+                    'login_today', 'is_new', 'daily_points', 'daily_bonus_friends', 'rank', 'league']
 
 
 @admin.register(League)
