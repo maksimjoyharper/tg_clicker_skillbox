@@ -110,6 +110,7 @@ class Task(models.Model):
     picture = models.ImageField(null=True, blank=True, verbose_name='Картинка')
     dop_name = models.CharField(max_length=50, blank=True, null=True, verbose_name='Доп. название задачи')
     description = models.CharField(max_length=255, verbose_name='Описание задачи', default='')
+    link = models.URLField(blank=True, null=True, verbose_name='Ссылка для выполнения задания')
     reward_currency = models.IntegerField(default=0, verbose_name='Награда (баллы)')
     reward_tickets = models.IntegerField(default=0, verbose_name='Награда (билеты)')
     is_active = models.BooleanField(default=True, verbose_name="Активность задачи")

@@ -16,7 +16,7 @@ class TaskSerializer(ModelSerializer):
 
     class Meta:
         model = Task
-        fields = ['id', 'name', 'picture', 'dop_name', 'description', 'reward_currency', 'reward_tickets',
+        fields = ['id', 'name', 'picture', 'dop_name', 'description', ' link', 'reward_currency', 'reward_tickets',
                   'is_active']
 
 
