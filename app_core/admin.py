@@ -25,7 +25,7 @@ class ReferralSystemAdmin(admin.ModelAdmin):
 @admin.register(Task)
 class TaskAdmin(admin.ModelAdmin):
     """Регистрация в админ панели модели Task."""
-    list_display = ['id', 'name', 'picture', 'dop_name', 'description', 'reward_currency', 'reward_tickets', 'is_active']
+    list_display = ['id', 'name', 'picture', 'dop_name', 'description', 'link', 'reward_currency', 'reward_tickets', 'is_active']
 
 
 @admin.register(PlayerTask)
