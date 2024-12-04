@@ -150,14 +150,14 @@ MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
 CACHES = {
     "default": {
         "BACKEND": "django_redis.cache.RedisCache",
-        "LOCATION": "redis://127.0.0.1:6379/1",  # База данных Redis для кэша ОТДЕЛЬНАЯ
+        "LOCATION": os.getenv("REDIS_LOCATION", "redis://127.0.0.1:6379/1"),
         "OPTIONS": {
             "CLIENT_CLASS": "django_redis.client.DefaultClient",
         }
     }
 }
 # Создаем асинхронный экземпляр Redis
-redis_instance = redis.StrictRedis(host='localhost', port=6379, db=0)
+redis_instance = redis.StrictRedis(host = os.getenv("REDIS_HOST", "localhost"), port = os.getenv("REDIS_PORT", 6379), db=0)
 
 CELERY_BROKER_URL = os.getenv("CELERY_BROKER_URL", "redis://localhost:6379/0")
 CELERY_RESULT_BACKEND = os.getenv("CELERY_RESULT_BACKEND", "redis://localhost:6379/0")
