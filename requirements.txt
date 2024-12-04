@@ -8,6 +8,7 @@ amqp==5.2.0
 annotated-types==0.7.0
 asgiref==3.8.1
 async-property==0.2.2
+async-signals==0.1.8
 async-timeout==5.0.1
 attrs==24.2.0
 billiard==4.2.1
@@ -22,9 +23,10 @@ click-plugins==1.1.1
 click-repl==0.3.0
 ConfigArgParse==1.7
 cron-descriptor==1.4.5
-Django==5.1.2
+Django==4.2.16
 django-celery-beat==2.7.0
 django-celery-results==2.5.1
+django-cors-headers==4.6.0
 django-redis==5.4.0
 django-timezone-field==7.0
 djangorestframework==3.15.2

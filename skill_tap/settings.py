@@ -53,6 +53,8 @@ INSTALLED_APPS = [
     'django_celery_beat',
     'adrf',
     'shop.apps.ShopConfig',
+    'corsheaders',
+    'async_signals',
 
 
 ]
@@ -62,6 +64,7 @@ MIDDLEWARE = [
     'whitenoise.middleware.WhiteNoiseMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
+    'corsheaders.middleware.CorsMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
