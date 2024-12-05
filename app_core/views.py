@@ -4,7 +4,7 @@ from drf_spectacular.types import OpenApiTypes
 from drf_spectacular.utils import OpenApiParameter, extend_schema_view, extend_schema
 from rest_framework import status
 from rest_framework.response import Response
-from app_core.models import Player, ReferralSystem, League, PlayerTask, DAILY_BONUSES
+from app_core.models import Player, ReferralSystem, League, PlayerTask, DAILY_BONUSES, Task
 from app_core.serializers import PlayerSerializer, PlayerTaskSerializer
 from adrf.viewsets import GenericAPIView
 from async_cache import async_cache
@@ -53,6 +53,11 @@ class PlayerInfo(GenericAPIView):
         serializer = self.get_serializer(player)
         return await serializer.adata
 
+    async def create_tasks_new_player(self, player):
+        """Функция для присваивания всех существующих задач игроку."""
+        tasks = [task async for task in Task.objects.all()]
+        await PlayerTask.objects.abulk_create([PlayerTask(player=player, task=task) for task in tasks])
+
     async def get(self, request, tg_id: int, name: str, referral_id: int = None):
         # Пытаемся получить игрока или создаем нового
         defaults = {"name": name, "is_new": True}
@@ -65,6 +70,7 @@ class PlayerInfo(GenericAPIView):
         if created:
             players_count = await Player.objects.acount()  # Получаем общее количество игроков
             player.rank = players_count  # Новый игрок всегда в конце списка
+            await self.create_tasks_new_player(player)  # Присваиваем все задачи игроку
             if referral_id and referral_id != tg_id:
                 referral = await Player.objects.aget(tg_id=referral_id)
                 # Проверяем, что реферальная связь ещё не существует
